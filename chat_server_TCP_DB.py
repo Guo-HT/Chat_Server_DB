@@ -4,8 +4,6 @@ import time
 import re
 import pymssql
 
-# online_user = []
-# Msg_Queue = []
 
 socket_list = []
 
@@ -82,14 +80,10 @@ def recv_from_client(client_socket, client_addr, database_info):
                     print(f'用户上传ID:{id}  密码为:{password}')
                     # sql_check_info = 'select password from user_table where id=%s;'
                     sql_check_info = f'select password from user_table where id={int(id)};'
-                    print('下一句执行sql——check——info')
                     # cur.execute(sql_check_info, (int(id),))
-
                     cur_temp.execute(sql_check_info)
-                    print('sql——check——info执行完毕')
                     real_password_row = cur_temp.fetchall()
                     real_password = real_password_row[0][0]
-                    print('得到了密码', real_password)
                     if password != real_password:
                         client_socket.send('no'.encode('gbk'))
                         print(f"帐号id为{id}的用户登陆失败")
@@ -131,7 +125,7 @@ def recv_from_client(client_socket, client_addr, database_info):
 def send_2_client(database_info):
     '''将服务端接受的消息分发给客户端'''
     con_send = pymssql.connect(database_info[0], database_info[1], database_info[2], database_info[3], charset='cp936')
-    cur_send = con_show.cursor()
+    cur_send = con_send.cursor()
     sql_is_send = "update msg_queue set is_send=1 where src=%s and dest=%s and msg=%s;"
     while True:
         sql_wait_to_send = "select ut.is_online, mq.src, mq.dest, mq.msg from user_table ut, msg_queue mq where ut.is_online<>'0' and mq.is_send=0 and ut.id=mq.dest;"
@@ -174,18 +168,21 @@ def output_msg(database_info):
         except:
             pass
         finally:
-            # print(f'在线用户:{len(online_user)}人', online_user)
-            # print(f'消息队列:{len(Msg_Queue)}条', Msg_Queue)
             print('在线用户：', online_count)
             print('消息队列：', not_send)
         time.sleep(2)
 
 
 def main():
-    database_info = ['127.0.0.1', 'sa', '123456', 'chat_server']
+    time.sleep(0.2)  # 程序开启时，pymssql模块会有warning，影响输入，故加入此延时
+    db_ip = input("请输入数据库IP地址：")
+    db_user = input("请输入数据库用户名：")
+    db_password = input("请输入数据库密码：")
+    db_name = input("请输入数据库名称：")
+    database_info = [db_ip, db_user, db_password, db_name]
+    # database_info = ['127.0.0.1', 'sa', '123456', 'chat_server']
     try:
-        con = pymssql.connect(database_info[0], database_info[1], database_info[2], database_info[3], charset='cp936')
-        cur = con.cursor()
+        pymssql.connect(database_info[0], database_info[1], database_info[2], database_info[3], charset='cp936')
         print("数据库连接成功！")
     except:
         print("数据库连接失败！")
@@ -200,7 +197,6 @@ def main():
 
     # 输出在线用户和消息队列
     threading.Thread(target=output_msg, args=(database_info,)).start()
-    time.sleep(0.1)
     # 开启线程：向客户端发送消息
     threading.Thread(target=send_2_client, args=(database_info,)).start()
 
